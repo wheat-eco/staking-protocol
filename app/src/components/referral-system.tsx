@@ -96,10 +96,7 @@ export function ReferralSystem({ walletAddress }: ReferralSystemProps) {
             <Twitter size={16} />
             <span>Twitter</span>
           </button>
-          <button className={`${styles.shareButton} ${styles.facebookButton}`} onClick={shareOnFacebook}>
-            <Facebook size={16} />
-            <span>Facebook</span>
-          </button>
+        
           <button className={`${styles.shareButton} ${styles.genericButton}`} onClick={copyToClipboard}>
             <Share2 size={16} />
             <span>Copy Link</span>
