@@ -14,7 +14,7 @@ const poetsenOne = Poetsen_One({
 export const metadata = {
   title: "WheatChain $SWHIT Token Spree",
   description: "The exclusive key to WheatChain's next chapter - Claim your $SWHIT tokens now!",
-  keywords: ["WheatChain", "SWHIT", "token", "crypto", "giveaway", "airdrop", "web3", "blockchain", "Sui"],
+  keywords: ["WheatChain", "SWHIT", "Sui", "crypto", "giveaway", "airdrop", "web3", "blockchain", "Sui"],
   authors: [{ name: "WheatChain Team" }],
   openGraph: {
     title: "WheatChain $SWHIT Token Spree | 10 Million Token Giveaway",
