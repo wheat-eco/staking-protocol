@@ -25,7 +25,7 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect }: Twitte
 
     try {
       // Open Twitter in a new window to follow
-      const twitterWindow = window.open("https://twitter.com/WheatChain", "_blank")
+      const twitterWindow = window.open("https://x.com/wheatchain_xyz", "_blank")
 
       // Wait for user to follow and return
       setTimeout(async () => {
@@ -43,7 +43,7 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect }: Twitte
         onConnect()
         toast.success("Twitter account connected successfully!")
         setLoading(false)
-      }, 5000)
+      }, 20000) // <-- Changed from 5000 to 20000 (20 seconds)
     } catch (error) {
       console.error("Error connecting Twitter:", error)
       toast.error("Failed to connect Twitter account")

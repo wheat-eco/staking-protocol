@@ -1,5 +1,4 @@
-import { initializeApp } from "firebase/app"
-
+import { initializeApp, getApps } from "firebase/app"
 import {
   getFirestore,
   doc,
@@ -11,8 +10,8 @@ import {
   where,
   getDocs,
   increment,
+  Timestamp,
 } from "firebase/firestore"
-import { getAuth } from "firebase/auth"
 
 // Firebase configuration
 const firebaseConfig = {
@@ -23,12 +22,15 @@ const firebaseConfig = {
   messagingSenderId: "221341040286",
   appId: "1:221341040286:web:ca960e81dd6a060787058f",
   measurementId: "G-8HQSTBFR8G"
-};
-// Initialize Firebase
-const app = initializeApp(firebaseConfig)
+}
 
-const db = getFirestore(app)
-const auth = getAuth(app)
+// Initialize Firebase
+export const initFirebase = () => {
+  if (!getApps().length) {
+    return initializeApp(firebaseConfig)
+  }
+  return getApps()[0]
+}
 
 // User types
 export interface UserData {
@@ -36,14 +38,17 @@ export interface UserData {
   twitter_connected?: boolean
   token_amount?: number
   claimed: boolean
-  created_at: Date
+  created_at: Date | Timestamp
   referral_code: string
   referrals_count: number
   referral_bonus: number
+  blacklisted?: boolean
 }
 
 // Create user if not exists
 export async function createUserIfNotExists(walletAddress: string): Promise<UserData> {
+  const app = initFirebase()
+  const db = getFirestore(app)
   const userRef = doc(db, "users", walletAddress)
   const userSnap = await getDoc(userRef)
 
@@ -55,7 +60,7 @@ export async function createUserIfNotExists(walletAddress: string): Promise<User
       wallet_address: walletAddress,
       twitter_connected: false,
       claimed: false,
-      created_at: new Date(),
+      created_at: Timestamp.now(),
       referral_code: referralCode,
       referrals_count: 0,
       referral_bonus: 0,
@@ -70,6 +75,8 @@ export async function createUserIfNotExists(walletAddress: string): Promise<User
 
 // Get user data
 export async function getUserData(walletAddress: string): Promise<UserData | null> {
+  const app = initFirebase()
+  const db = getFirestore(app)
   const userRef = doc(db, "users", walletAddress)
   const userSnap = await getDoc(userRef)
 
@@ -82,6 +89,8 @@ export async function getUserData(walletAddress: string): Promise<UserData | nul
 
 // Connect Twitter account
 export async function connectTwitterAccount(walletAddress: string): Promise<void> {
+  const app = initFirebase()
+  const db = getFirestore(app)
   const userRef = doc(db, "users", walletAddress)
 
   await updateDoc(userRef, {
@@ -91,8 +100,24 @@ export async function connectTwitterAccount(walletAddress: string): Promise<void
 
 // Generate random token amount
 export async function generateTokenAmount(walletAddress: string): Promise<number> {
-  // Generate random amount between 100 and 10,000
-  const amount = Math.floor(Math.random() * 9900) + 100
+  const app = initFirebase()
+  const db = getFirestore(app)
+
+  // Get campaign settings
+  const settingsRef = doc(db, "settings", "campaign")
+  const settingsSnap = await getDoc(settingsRef)
+
+  let minAmount = 100
+  let maxAmount = 10000
+
+  if (settingsSnap.exists()) {
+    const settings = settingsSnap.data()
+    minAmount = settings.minTokenAmount || minAmount
+    maxAmount = settings.maxTokenAmount || maxAmount
+  }
+
+  // Generate random amount between min and max
+  const amount = Math.floor(Math.random() * (maxAmount - minAmount + 1)) + minAmount
 
   const userRef = doc(db, "users", walletAddress)
   await updateDoc(userRef, {
@@ -104,15 +129,42 @@ export async function generateTokenAmount(walletAddress: string): Promise<number
 
 // Mark tokens as claimed
 export async function markTokensAsClaimed(walletAddress: string): Promise<void> {
+  const app = initFirebase()
+  const db = getFirestore(app)
   const userRef = doc(db, "users", walletAddress)
 
   await updateDoc(userRef, {
     claimed: true,
+    claimed_at: Timestamp.now(),
+  })
+
+  // Log the claim in activity
+  const activityRef = doc(collection(db, "activity"))
+  await setDoc(activityRef, {
+    type: "claim",
+    wallet_address: walletAddress,
+    timestamp: Timestamp.now(),
   })
 }
 
 // Process referral
 export async function processReferral(referralCode: string, newUserWalletAddress: string): Promise<void> {
+  const app = initFirebase()
+  const db = getFirestore(app)
+
+  // Get campaign settings
+  const settingsRef = doc(db, "settings", "campaign")
+  const settingsSnap = await getDoc(settingsRef)
+
+  let referrerBonus = 500
+  let refereeBonus = 250
+
+  if (settingsSnap.exists()) {
+    const settings = settingsSnap.data()
+    referrerBonus = settings.referralBonus || referrerBonus
+    refereeBonus = settings.refereeBonus || refereeBonus
+  }
+
   // Find the referrer
   const usersRef = collection(db, "users")
   const q = query(usersRef, where("referral_code", "==", referralCode))
@@ -126,7 +178,8 @@ export async function processReferral(referralCode: string, newUserWalletAddress
     const referrerRef = doc(db, "users", referrerWalletAddress)
     await updateDoc(referrerRef, {
       referrals_count: increment(1),
-      referral_bonus: increment(500), // 500 bonus tokens per referral
+      referral_bonus: increment(referrerBonus),
+      last_referral_date: Timestamp.now(),
     })
 
     // Add bonus to the new user
@@ -138,14 +191,27 @@ export async function processReferral(referralCode: string, newUserWalletAddress
       const currentTokenAmount = userData.token_amount || 0
 
       await updateDoc(newUserRef, {
-        token_amount: currentTokenAmount + 250, // 250 bonus tokens for being referred
+        token_amount: currentTokenAmount + refereeBonus,
+        referred_by: referrerWalletAddress,
       })
     }
+
+    // Log the referral in activity
+    const activityRef = doc(collection(db, "activity"))
+    await setDoc(activityRef, {
+      type: "referral",
+      referrer: referrerWalletAddress,
+      referee: newUserWalletAddress,
+      bonus: referrerBonus,
+      timestamp: Timestamp.now(),
+    })
   }
 }
 
 // Get referral code
 export async function getReferralCode(walletAddress: string): Promise<string> {
+  const app = initFirebase()
+  const db = getFirestore(app)
   const userRef = doc(db, "users", walletAddress)
   const userSnap = await getDoc(userRef)
 
@@ -165,6 +231,8 @@ export async function getReferralCode(walletAddress: string): Promise<string> {
 
 // Get referral stats
 export async function getReferralStats(walletAddress: string): Promise<{ count: number; bonus: number }> {
+  const app = initFirebase()
+  const db = getFirestore(app)
   const userRef = doc(db, "users", walletAddress)
   const userSnap = await getDoc(userRef)
 
