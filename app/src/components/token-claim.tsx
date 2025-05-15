@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { ArrowRight, Check, Coins } from "lucide-react"
 import toast from "react-hot-toast"
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit"
@@ -75,8 +76,15 @@ export function TokenClaim({ tokenAmount, walletAddress, onClaim }: TokenClaimPr
     <div className={styles.container}>
       <div className={styles.content}>
         <div className={styles.tokenInfo}>
-          <div className={styles.tokenIcon}>
-            <Coins className={styles.icon} />
+         <div className={styles.tokenIcon}>
+            <Image
+              src="/log.png" // <-- Replace with your actual file name
+              alt="Token Icon"
+              width={48}
+              height={48}
+              className={styles.icon}
+              priority
+            />
           </div>
           <div className={styles.tokenAmount}>
             <span className={styles.amount}>{tokenAmount.toLocaleString()}</span>

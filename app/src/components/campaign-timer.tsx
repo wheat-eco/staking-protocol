@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react"
 import styles from "./campaign-timer.module.css"
 
-// Set the end date 5 days from now
-const END_DATE = new Date()
-END_DATE.setDate(END_DATE.getDate() + 5)
+// Hardcoded campaign end date (UTC)
+const END_DATE = new Date("2025-05-31T23:59:59Z")
 
 interface TimeLeft {
   days: number
