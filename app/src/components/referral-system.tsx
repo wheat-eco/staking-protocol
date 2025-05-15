@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Copy, Share2, Twitter, Facebook } from "lucide-react"
 import toast from "react-hot-toast"
 import { getReferralCode, getReferralStats } from "@/lib/firebase"
@@ -92,10 +93,10 @@ export function ReferralSystem({ walletAddress }: ReferralSystemProps) {
       <div className={styles.shareOptions}>
         <p className={styles.shareLabel}>Share with friends</p>
         <div className={styles.shareButtons}>
-          <button className={`${styles.shareButton} ${styles.twitterButton}`} onClick={shareOnTwitter}>
-            <Twitter size={16} />
+            <button className={`${styles.shareButton} ${styles.twitterButton}`} onClick={shareOnTwitter}>
+            <Image src="/twitter.png" alt="Twitter" width={16} height={16} />
             <span>Twitter</span>
-          </button>
+            </button>
         
           <button className={`${styles.shareButton} ${styles.genericButton}`} onClick={copyToClipboard}>
             <Share2 size={16} />

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Twitter, Check, ExternalLink } from "lucide-react"
 import toast from "react-hot-toast"
 import { connectTwitterAccount } from "@/lib/firebase"
@@ -66,7 +67,7 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect }: Twitte
       ) : (
         <div className={styles.connectState}>
           <div className={styles.twitterLogo}>
-            <Twitter className={styles.twitterIcon} />
+            <img src="/x.png" alt="Twitter" className={styles.twitterIcon} />
           </div>
           <h3>Follow WheatChain on X</h3>
           <p>Follow our official X account to verify your identity and participate in the token spree</p>
@@ -75,7 +76,7 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect }: Twitte
               <span className={styles.loadingSpinner}></span>
             ) : (
               <>
-                <Twitter className={styles.buttonIcon} />
+                <img src="/x.png" alt="Twitter" className={styles.buttonIcon} />
                 <span>Follow on X</span>
                 <ExternalLink className={styles.externalIcon} />
               </>
