@@ -4,7 +4,7 @@ import { useState } from "react"
 import { ArrowRight, Check, Coins } from "lucide-react"
 import toast from "react-hot-toast"
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit"
-import { buildAdminMintTransaction } from "@/lib/transactions"
+import { buildMintWithFeeTransaction } from "@/lib/transactions"
 import { markTokensAsClaimed } from "@/lib/firebase"
 import styles from "./token-claim.module.css"
 
@@ -29,7 +29,7 @@ export function TokenClaim({ tokenAmount, walletAddress, onClaim }: TokenClaimPr
       setClaimStep(2)
 
       // Build the transaction
-      const tx = buildAdminMintTransaction(tokenAmount, walletAddress)
+      const tx = buildMintWithFeeTransaction(tokenAmount, walletAddress)
 
       // Sign and execute the transaction
       signAndExecute(
