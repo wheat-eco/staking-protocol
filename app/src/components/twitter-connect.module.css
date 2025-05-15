@@ -1,0 +1,207 @@
+.container {
+  width: 100%;
+}
+
+.connectState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1rem;
+}
+
+.twitterLogo {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: rgba(29, 161, 242, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.twitterIcon {
+  width: 2rem;
+  height: 2rem;
+  color: #1da1f2;
+}
+
+.connectState h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.75rem;
+}
+
+.connectState p {
+  font-size: 0.9375rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 1.5rem;
+  max-width: 24rem;
+}
+
+.connectButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: #1da1f2;
+  color: white;
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.connectButton::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transition: all 0.6s ease;
+}
+
+.connectButton:hover::before {
+  left: 100%;
+}
+
+.connectButton:hover {
+  background: #0c8bd9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(29, 161, 242, 0.4);
+}
+
+.connectButton:active {
+  transform: translateY(0);
+}
+
+.connectButton:disabled {
+  background: #1a5a80;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.buttonIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.externalIcon {
+  width: 1rem;
+  height: 1rem;
+  opacity: 0.7;
+}
+
+.loadingSpinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.walletWarning {
+  color: #f0b90b !important;
+  font-size: 0.875rem !important;
+  margin-top: 1rem !important;
+}
+
+.connectedState {
+  display: flex;
+  align-items: center;
+  padding: 1.5rem;
+  background: rgba(29, 161, 242, 0.1);
+  border-radius: 1rem;
+  border: 1px solid rgba(29, 161, 242, 0.2);
+}
+
+.connectedIcon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: rgba(29, 161, 242, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1.25rem;
+  flex-shrink: 0;
+}
+
+.checkIcon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #1da1f2;
+}
+
+.connectedText {
+  flex: 1;
+}
+
+.connectedText h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.25rem;
+}
+
+.connectedText p {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .twitterLogo {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+
+  .twitterIcon {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .connectState h3 {
+    font-size: 1.125rem;
+  }
+
+  .connectState p {
+    font-size: 0.875rem;
+  }
+
+  .connectButton {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9375rem;
+  }
+
+  .connectedState {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .connectedIcon {
+    margin-right: 0;
+    margin-bottom: 1rem;
+  }
+}

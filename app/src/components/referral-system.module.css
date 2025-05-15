@@ -1,0 +1,174 @@
+.container {
+  width: 100%;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  gap: 1rem;
+}
+
+.loadingSpinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid rgba(240, 185, 11, 0.1);
+  border-radius: 50%;
+  border-top-color: #f0b90b;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.statsContainer {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 1.5rem;
+  background: rgba(240, 185, 11, 0.05);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.statItem {
+  text-align: center;
+}
+
+.statValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f0b90b;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.25rem;
+}
+
+.referralLinkContainer {
+  margin-bottom: 1.5rem;
+}
+
+.referralLabel {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.referralLinkBox {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.referralInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  width: 100%;
+  outline: none;
+}
+
+.copyButton {
+  background: rgba(240, 185, 11, 0.2);
+  color: #f0b90b;
+  border: none;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copyButton:hover {
+  background: rgba(240, 185, 11, 0.3);
+}
+
+.shareOptions {
+  margin-bottom: 1.5rem;
+}
+
+.shareLabel {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.shareButtons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.shareButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.twitterButton {
+  background: rgba(29, 161, 242, 0.2);
+  color: #1da1f2;
+}
+
+.twitterButton:hover {
+  background: rgba(29, 161, 242, 0.3);
+}
+
+.facebookButton {
+  background: rgba(59, 89, 152, 0.2);
+  color: #3b5998;
+}
+
+.facebookButton:hover {
+  background: rgba(59, 89, 152, 0.3);
+}
+
+.genericButton {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.genericButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.referralInfo {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  padding: 0.5rem;
+  background: rgba(240, 185, 11, 0.05);
+  border-radius: 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .shareButtons {
+    flex-direction: column;
+  }
+
+  .shareButton {
+    width: 100%;
+    justify-content: center;
+  }
+}
