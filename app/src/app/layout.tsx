@@ -1,14 +1,14 @@
 import type React from "react"
 import { Providers } from "@/components/providers"
 import { ToastProvider } from "@/components/toast-provider"
-import { Kalnia_Glaze } from "next/font/google"
+import { Poetsen_One } from "next/font/google"
 import "./globals.css"
 
-const kalniaGlaze = Kalnia_Glaze({
-  weight: ["400", "500", "600", "700"],
+const poetsenOne = Poetsen_One({
+  weight: ["400"],
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-kalnia-glaze",
+  variable: "--font-poetsen-one",
 })
 
 export const metadata = {
@@ -32,7 +32,7 @@ export const metadata = {
     icon: "/favicon.ico",
     apple: "/apple-icon.png",
   },
-  
+ 
 }
 
 export default function RootLayout({
@@ -41,7 +41,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={kalniaGlaze.variable}>
+    <html lang="en" className={poetsenOne.variable}>
       <body>
         <Providers>
           <ToastProvider />
