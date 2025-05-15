@@ -58,7 +58,7 @@
     --chart-4: #e17055;
     --chart-5: #fd79a8;
 
-    --font-body: "Inter Tight", sans-serif;
+    --font-body: var(--font-poetsen-one), sans-serif;
     --font-heading: var(--font-poetsen-one), sans-serif;
   }
 
