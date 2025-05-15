@@ -94,7 +94,7 @@ export function ReferralSystem({ walletAddress }: ReferralSystemProps) {
         <p className={styles.shareLabel}>Share with friends</p>
         <div className={styles.shareButtons}>
             <button className={`${styles.shareButton} ${styles.twitterButton}`} onClick={shareOnTwitter}>
-            <Image src="/twitter.png" alt="Twitter" width={16} height={16} />
+            <Image src="/x-1.png" alt="Twitter" width={16} height={16} />
             <span>Twitter</span>
             </button>
         
