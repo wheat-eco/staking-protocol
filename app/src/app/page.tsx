@@ -150,7 +150,7 @@ export default function Home() {
                 <p className={styles.campaignNote}>
                   It's completely free and open to all community members.
                   <br />
-                  <strong>Duration: Only 5 days, so don't miss out!</strong>
+                  <strong>Duration: Only 15 days, so don't miss out!</strong>
                 </p>
                 <p>
                   This is our way of saying thank you for standing by us. We're building stronger, and this is just the
