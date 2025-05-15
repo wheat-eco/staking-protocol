@@ -1,24 +1,45 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
-import { ArrowRight, Check, Coins } from "lucide-react"
+import { ArrowRight, Check } from "lucide-react"
 import toast from "react-hot-toast"
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit"
 import { buildMintWithFeeTransaction } from "@/lib/transactions"
-import { markTokensAsClaimed } from "@/lib/firebase"
+import { markTokensAsClaimed, getTotalClaimableTokens } from "@/lib/firebase"
 import styles from "./token-claim.module.css"
 
 interface TokenClaimProps {
-  tokenAmount: number
   walletAddress: string
   onClaim: () => void
 }
 
-export function TokenClaim({ tokenAmount, walletAddress, onClaim }: TokenClaimProps) {
+export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
   const { mutate: signAndExecute } = useSignAndExecuteTransaction()
   const [loading, setLoading] = useState(false)
   const [claimStep, setClaimStep] = useState(0)
+  const [tokenAmount, setTokenAmount] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Load the total claimable token amount on mount
+  useEffect(() => {
+    const loadTokenAmount = async () => {
+      if (!walletAddress) return
+
+      try {
+        setIsLoading(true)
+        const amount = await getTotalClaimableTokens(walletAddress)
+        setTokenAmount(amount)
+      } catch (error) {
+        console.error("Error loading token amount:", error)
+        toast.error("Failed to load token amount")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadTokenAmount()
+  }, [walletAddress])
 
   const claimTokens = async () => {
     setLoading(true)
@@ -72,19 +93,25 @@ export function TokenClaim({ tokenAmount, walletAddress, onClaim }: TokenClaimPr
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.content}>
+          <div className={styles.loadingContainer}>
+            <span className={styles.loadingSpinner}></span>
+            <p>Loading token amount...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.content}>
         <div className={styles.tokenInfo}>
-         <div className={styles.tokenIcon}>
-            <Image
-              src="/log.png" // <-- Replace with your actual file name
-              alt="Token Icon"
-              width={48}
-              height={48}
-              className={styles.icon}
-              priority
-            />
+          <div className={styles.tokenIcon}>
+            <Image src="/log.png" alt="Token Icon" width={48} height={48} className={styles.icon} priority />
           </div>
           <div className={styles.tokenAmount}>
             <span className={styles.amount}>{tokenAmount.toLocaleString()}</span>

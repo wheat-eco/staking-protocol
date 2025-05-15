@@ -17,6 +17,7 @@ export default function Home() {
   const [userData, setUserData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showReferral, setShowReferral] = useState(false)
+  const [allTasksCompleted, setAllTasksCompleted] = useState(false)
 
   // Fetch user data when wallet is connected
   useEffect(() => {
@@ -42,6 +43,9 @@ export default function Home() {
           data.token_amount = amount
         }
 
+        // Check if all tasks are completed
+        setAllTasksCompleted(data?.tasks_completed || false)
+
         setUserData(data || null)
       } catch (error) {
         console.error("Error fetching user data:", error)
@@ -64,6 +68,18 @@ export default function Home() {
       // This would be implemented in the firebase.ts file
     }
   }, [account])
+
+  // Handle when all social tasks are completed
+  const handleAllTasksCompleted = () => {
+    setAllTasksCompleted(true)
+    // Update the user data to reflect tasks completion
+    if (userData) {
+      setUserData({
+        ...userData,
+        tasks_completed: true,
+      })
+    }
+  }
 
   return (
     <>
@@ -118,8 +134,8 @@ export default function Home() {
                   <div className={styles.step}>
                     <div className={styles.stepNumber}>2</div>
                     <div className={styles.stepContent}>
-                      <h3>Follow us on X (Twitter)</h3>
-                      <p>Follow our official X account to verify your identity</p>
+                      <h3>Complete social tasks</h3>
+                      <p>Follow us on X, join Telegram and Discord</p>
                     </div>
                   </div>
                   <div className={styles.step}>
@@ -164,7 +180,7 @@ export default function Home() {
           <div className={styles.actionCards}>
             <div className={styles.actionCard}>
               <div className={styles.cardHeader}>
-                <h2 className={styles.cardTitle}>Follow on X (Twitter)</h2>
+                <h2 className={styles.cardTitle}>Complete Social Tasks</h2>
               </div>
               <div className={styles.cardBody}>
                 <TwitterConnect
@@ -176,6 +192,7 @@ export default function Home() {
                       twitter_connected: true,
                     })
                   }}
+                  onAllTasksCompleted={handleAllTasksCompleted}
                 />
               </div>
             </div>
@@ -189,26 +206,15 @@ export default function Home() {
                   <div className={styles.connectPrompt}>
                     <p>Connect your wallet to claim tokens</p>
                   </div>
-                ) : !userData?.twitter_connected ? (
+                ) : !allTasksCompleted ? (
                   <div className={styles.connectPrompt}>
-                    <p>Follow us on X (Twitter) first</p>
+                    <p>Complete all social tasks first</p>
                   </div>
-                ) : userData?.token_amount && !userData?.claimed ? (
-                  <TokenClaim
-                    tokenAmount={userData.token_amount}
-                    walletAddress={account.address}
-                    onClaim={() => {
-                      setUserData({
-                        ...userData,
-                        claimed: true,
-                      })
-                    }}
-                  />
                 ) : userData?.claimed ? (
                   <div className={styles.claimedMessage}>
                     <div className={styles.claimedIcon}>✓</div>
                     <h3>Tokens Claimed!</h3>
-                    <p>You've successfully claimed {userData.token_amount.toLocaleString()} $SWHIT tokens</p>
+                    <p>You've successfully claimed your $SWHIT tokens</p>
                     <button className={styles.shareButton} onClick={() => setShowReferral(true)}>
                       <Share size={16} />
                       <span>Share & Earn More</span>
@@ -220,9 +226,15 @@ export default function Home() {
                     <p>Preparing your tokens...</p>
                   </div>
                 ) : (
-                  <div className={styles.connectPrompt}>
-                    <p>Something went wrong. Please refresh the page.</p>
-                  </div>
+                  <TokenClaim
+                    walletAddress={account.address}
+                    onClaim={() => {
+                      setUserData({
+                        ...userData,
+                        claimed: true,
+                      })
+                    }}
+                  />
                 )}
               </div>
             </div>
@@ -243,14 +255,14 @@ export default function Home() {
             <div className={styles.faqCard}>
               <h3>How many tokens can I receive?</h3>
               <p>
-                You'll receive a random amount of $SWHIT tokens when you connect your wallet and follow our X account.
-                The amount varies for each user, ranging from 100 to 10,000 tokens. You can earn additional tokens
-                through referrals.
+                You'll receive a random amount of $SWHIT tokens when you connect your wallet and complete the social
+                tasks. The amount varies for each user, ranging from 100 to 10,000 tokens, plus bonuses for completing
+                tasks. You can earn additional tokens through referrals.
               </p>
             </div>
             <div className={styles.faqCard}>
               <h3>How long will the campaign last?</h3>
-              <p>The campaign will last for 5 days only. Make sure to participate before the timer ends!</p>
+              <p>The campaign will last for 15 days only. Make sure to participate before the timer ends!</p>
             </div>
             <div className={styles.faqCard}>
               <h3>How does the referral system work?</h3>
