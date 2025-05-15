@@ -52,7 +52,6 @@ export function CampaignTimer() {
   return (
     <div className={styles.timerContainer}>
       <div className={styles.timerHeader}>
-        <div className={styles.timerIcon}></div>
         <h3 className={styles.timerTitle}>Campaign Ends In</h3>
       </div>
 
