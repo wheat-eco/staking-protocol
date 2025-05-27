@@ -15,14 +15,14 @@ import {
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
-}
+  apiKey: "AIzaSyAGQMk7e_CdD4t7Kbr1Gif3LGyiAYCZIP0",
+  authDomain: "wher-faccd.firebaseapp.com",
+  projectId: "wher-faccd",
+  storageBucket: "wher-faccd.firebasestorage.app",
+  messagingSenderId: "221341040286",
+  appId: "1:221341040286:web:ca960e81dd6a060787058f",
+  measurementId: "G-8HQSTBFR8G"
+};
 
 // Initialize Firebase
 export const initFirebase = () => {
