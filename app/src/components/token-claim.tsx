@@ -5,7 +5,7 @@ import Image from "next/image"
 import { ArrowRight, Check } from "lucide-react"
 import toast from "react-hot-toast"
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit"
-import { buildMintWithFeeTransaction } from "@/lib/transactions"
+import { buildRequestTokensTransaction } from "@/lib/transactions"
 import { markTokensAsClaimed, getTotalClaimableTokens } from "@/lib/firebase"
 import styles from "./token-claim.module.css"
 
@@ -52,7 +52,7 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
       setClaimStep(2)
 
       // Build the transaction - NOTE: buildMintWithFeeTransaction only takes amount, not walletAddress
-      const tx = buildMintWithFeeTransaction(tokenAmount)
+      const tx = buildRequestTokensTransaction(tokenAmount)
 
       // Sign and execute the transaction
       signAndExecute(

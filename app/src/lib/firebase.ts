@@ -13,15 +13,15 @@ import {
   Timestamp,
 } from "firebase/firestore"
 
-// Firebase configuration
+// Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyAGQMk7e_CdD4t7Kbr1Gif3LGyiAYCZIP0",
-  authDomain: "wher-faccd.firebaseapp.com",
-  projectId: "wher-faccd",
-  storageBucket: "wher-faccd.firebasestorage.app",
-  messagingSenderId: "221341040286",
-  appId: "1:221341040286:web:ca960e81dd6a060787058f",
-  measurementId: "G-8HQSTBFR8G",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
 }
 
 // Initialize Firebase
@@ -196,15 +196,28 @@ export async function generateTokenAmount(walletAddress: string): Promise<number
     maxAmount = settings.maxTokenAmount || maxAmount
   }
 
-  // Generate random amount between min and max
-  const amount = Math.floor(Math.random() * (maxAmount - minAmount + 1)) + minAmount
+  // Quadratic bias towards higher values
+  const rand = Math.random()
+  const biased = Math.pow(rand, 2) // 0..1, more weight toward 0 (lower values)
+  const amount = Math.floor(minAmount + (maxAmount - minAmount) * (1 - biased))
+
+  // Add a small deterministic bonus based on wallet address hash
+  let bonus = 0
+  if (walletAddress) {
+    // Simple hash: sum char codes mod 100
+    bonus = walletAddress
+      .split("")
+      .reduce((sum, c) => sum + c.charCodeAt(0), 0) % 100
+  }
+
+  const finalAmount = amount + bonus
 
   const userRef = doc(db, "users", walletAddress)
   await updateDoc(userRef, {
-    token_amount: amount,
+    token_amount: finalAmount,
   })
 
-  return amount
+  return finalAmount
 }
 
 // Update total token amount (base + social rewards)
