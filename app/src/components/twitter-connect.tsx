@@ -1,18 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Check, ExternalLink } from "lucide-react"
+import { Check, ExternalLink, Gift } from "lucide-react"
 import toast from "react-hot-toast"
 import {
   connectTwitterAccount,
   joinTelegramCommunity,
   joinDiscordChannel,
   getUserData,
-  updateTotalTokenAmount,
-} from "@/lib/firebase"
+  updateTasksCompleted,
+} from "@/lib/supabase-client"
 import styles from "./twitter-connect.module.css"
 
-// Task configuration - can be moved to Firestore for dynamic updates
+// Task configuration
 const SOCIAL_TASKS = [
   {
     id: "twitter",
@@ -22,6 +22,7 @@ const SOCIAL_TASKS = [
     link: "https://x.com/wheatchain_xyz",
     connectFunction: connectTwitterAccount,
     waitTime: 20000, // 20 seconds
+    buttonText: "Follow",
   },
   {
     id: "telegram",
@@ -31,6 +32,7 @@ const SOCIAL_TASKS = [
     link: "https://t.me/swhit_tgchat",
     connectFunction: joinTelegramCommunity,
     waitTime: 20000, // 20 seconds
+    buttonText: "Join",
   },
   {
     id: "discord",
@@ -40,6 +42,7 @@ const SOCIAL_TASKS = [
     link: "https://discord.gg/zVsYfGkNDa",
     connectFunction: joinDiscordChannel,
     waitTime: 20000, // 20 seconds
+    buttonText: "Join",
   },
 ]
 
@@ -48,57 +51,68 @@ interface TwitterConnectProps {
   isConnected: boolean
   onConnect: () => void
   onAllTasksCompleted?: () => void
+  onUpdate?: () => void
 }
 
-export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTasksCompleted }: TwitterConnectProps) {
+export function TwitterConnect({
+  walletAddress,
+  isConnected,
+  onConnect,
+  onAllTasksCompleted,
+  onUpdate,
+}: TwitterConnectProps) {
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [completed, setCompleted] = useState<Record<string, boolean>>({})
   const [rewards, setRewards] = useState<Record<string, number>>({})
   const [allTasksCompleted, setAllTasksCompleted] = useState(false)
   const [totalReward, setTotalReward] = useState(0)
+  const [dataLoading, setDataLoading] = useState(true)
 
   // Load user data and task completion status on mount
   useEffect(() => {
     const loadUserData = async () => {
-      if (!walletAddress) return
+      if (!walletAddress) {
+        setDataLoading(false)
+        return
+      }
 
       try {
+        setDataLoading(true)
         const userData = await getUserData(walletAddress)
+
         if (userData) {
           // Initialize completed tasks from user data
           const completedTasks: Record<string, boolean> = {}
+          const taskRewards: Record<string, number> = {}
+          let socialRewardsTotal = 0
 
           SOCIAL_TASKS.forEach((task) => {
-            const isCompleted = userData[`${task.id}_connected`] === true
+            const isCompleted = userData[`${task.id}_connected` as keyof typeof userData] === true
+            const reward = (userData[`${task.id}_reward` as keyof typeof userData] as number) || 0
+
             completedTasks[task.id] = isCompleted
+            taskRewards[task.id] = reward
+            socialRewardsTotal += reward
           })
 
           setCompleted(completedTasks)
+          setRewards(taskRewards)
+          setTotalReward(socialRewardsTotal)
 
           // Check if all tasks are completed
           const allDone = SOCIAL_TASKS.every((task) => completedTasks[task.id])
           setAllTasksCompleted(allDone)
 
           // If all tasks are completed, notify parent component
-          if (allDone && onAllTasksCompleted) {
+          if (allDone && onAllTasksCompleted && !userData.tasks_completed) {
             onAllTasksCompleted()
           }
-
-          // Load rewards if they exist
-          const taskRewards: Record<string, number> = {}
-          let socialRewardsTotal = 0
-
-          SOCIAL_TASKS.forEach((task) => {
-            const reward = userData[`${task.id}_reward`] || 0
-            taskRewards[task.id] = reward
-            socialRewardsTotal += reward
-          })
-
-          setRewards(taskRewards)
-          setTotalReward(socialRewardsTotal)
         }
       } catch (error) {
         console.error("Error loading user data:", error)
+        toast.error("Failed to load task data")
+      } finally {
+        setDataLoading(false)
       }
     }
 
@@ -126,19 +140,21 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTas
 
     try {
       // Open the link in a new window
-      const socialWindow = window.open(task.link, "_blank")
+      const socialWindow = window.open(task.link, "_blank", "width=600,height=700")
 
-      // Show a simple loading toast without mentioning the wait time
+      // Show loading toast
       const toastId = toast.loading(`Connecting to ${task.name.split(" ").pop()}...`)
 
-      // Wait for user to complete the task (silently)
+      // Wait for user to complete the task
       setTimeout(async () => {
         try {
-          // Connect account in Firebase
-          await task.connectFunction(walletAddress)
+          // Connect account in Supabase and get reward
+          const reward = await task.connectFunction(walletAddress)
 
-          // Generate random reward (1-500 tokens)
-          const reward = Math.floor(Math.random() * 500) + 1
+          // Close the window if it's still open
+          if (socialWindow && !socialWindow.closed) {
+            socialWindow.close()
+          }
 
           // Update rewards state
           setRewards((prev) => {
@@ -148,31 +164,27 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTas
             return newRewards
           })
 
-          // Close the window if it's still open
-          if (socialWindow && !socialWindow.closed) {
-            socialWindow.close()
-          }
-
           // Mark task as completed
           setCompleted((prev) => {
             const newCompleted = { ...prev, [taskId]: true }
+
+            // Check if all tasks are now completed
+            const allDone = SOCIAL_TASKS.every((t) => newCompleted[t.id])
+
+            if (allDone && !allTasksCompleted) {
+              setAllTasksCompleted(true)
+
+              // Update tasks completion status in Supabase
+              updateTasksCompleted(walletAddress).catch(console.error)
+
+              // Notify parent component that all tasks are completed
+              if (onAllTasksCompleted) {
+                onAllTasksCompleted()
+              }
+            }
+
             return newCompleted
           })
-
-          // Check if all tasks are now completed
-          const updatedCompleted = { ...completed, [taskId]: true }
-          const allDone = SOCIAL_TASKS.every((t) => updatedCompleted[t.id])
-
-          if (allDone && !allTasksCompleted) {
-            // All tasks just completed - update the total token amount in Firebase
-            await updateTotalTokenAmount(walletAddress)
-            setAllTasksCompleted(true)
-
-            // Notify parent component that all tasks are completed
-            if (onAllTasksCompleted) {
-              onAllTasksCompleted()
-            }
-          }
 
           // Dismiss the loading toast and show success
           toast.dismiss(toastId)
@@ -181,6 +193,11 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTas
           // Call the onConnect callback if this is the Twitter task (for backward compatibility)
           if (taskId === "twitter") {
             onConnect()
+          }
+
+          // Call onUpdate to refresh parent data
+          if (onUpdate) {
+            onUpdate()
           }
         } catch (error) {
           console.error(`Error completing ${task.id} task:`, error)
@@ -197,12 +214,23 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTas
     }
   }
 
+  if (dataLoading) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.loadingSpinner}></div>
+          <p>Loading tasks...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.tasksContainer}>
         <h2 className={styles.tasksTitle}>Complete Social Tasks</h2>
         <p className={styles.tasksDescription}>
-          Complete all tasks to earn tokens and participate in the WheatChain token spree
+          Complete all tasks to earn bonus tokens and participate in the WheatChain token spree
         </p>
 
         <div className={styles.tasksList}>
@@ -223,7 +251,8 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTas
 
                 {completed[task.id] && rewards[task.id] > 0 && (
                   <div className={styles.taskReward}>
-                    <span>+{rewards[task.id]} tokens</span>
+                    <Gift size={16} />
+                    <span>+{rewards[task.id]} tokens earned</span>
                   </div>
                 )}
               </div>
@@ -232,6 +261,13 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTas
                 className={`${styles.taskButton} ${completed[task.id] ? styles.taskButtonCompleted : ""}`}
                 onClick={() => handleTaskConnect(task.id)}
                 disabled={loading[task.id] || completed[task.id] || !walletAddress}
+                title={
+                  !walletAddress
+                    ? "Connect wallet first"
+                    : completed[task.id]
+                      ? "Task completed"
+                      : `Complete ${task.name}`
+                }
               >
                 {loading[task.id] ? (
                   <span className={styles.loadingSpinner}></span>
@@ -243,7 +279,7 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTas
                 ) : (
                   <>
                     <ExternalLink className={styles.buttonIcon} />
-                    <span>{task.id === "twitter" ? "Follow" : "Join"}</span>
+                    <span>{task.buttonText}</span>
                   </>
                 )}
               </button>
@@ -258,12 +294,17 @@ export function TwitterConnect({ walletAddress, isConnected, onConnect, onAllTas
             </div>
             <h3 className={styles.tasksCompletedTitle}>All Tasks Completed!</h3>
             <p className={styles.tasksCompletedDescription}>
-              You've earned {totalReward} bonus tokens. Proceed to claim your rewards.
+              You've earned <strong>{totalReward} bonus tokens</strong> from social tasks. Proceed to claim your total
+              rewards.
             </p>
           </div>
         )}
 
-        {!walletAddress && <p className={styles.walletWarning}>Connect your wallet first to complete tasks</p>}
+        {!walletAddress && (
+          <div className={styles.walletWarning}>
+            <p>Connect your wallet first to complete tasks</p>
+          </div>
+        )}
       </div>
     </div>
   )

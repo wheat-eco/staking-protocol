@@ -8,8 +8,9 @@ import { TokenClaim } from "@/components/token-claim"
 import { CampaignTimer } from "@/components/campaign-timer"
 import { BackgroundEffect } from "@/components/background-effect"
 import { ReferralSystem } from "@/components/referral-system"
-import { getUserData, createUserIfNotExists, generateTokenAmount } from "@/lib/firebase"
+import { getUserData, createUserIfNotExists, validateReferralCode } from "@/lib/supabase-client"
 import { Share } from "lucide-react"
+import toast from "react-hot-toast"
 import styles from "./page.module.css"
 
 export default function Home() {
@@ -18,6 +19,30 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [showReferral, setShowReferral] = useState(false)
   const [allTasksCompleted, setAllTasksCompleted] = useState(false)
+  const [referralProcessed, setReferralProcessed] = useState(false)
+
+  // Process referral from URL on page load
+  useEffect(() => {
+    const processUrlReferral = async () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const referralCode = urlParams.get("ref")
+
+      if (referralCode && !referralProcessed) {
+        // Validate referral code first
+        const isValid = await validateReferralCode(referralCode)
+        if (isValid) {
+          // Store referral code in localStorage for when user connects wallet
+          localStorage.setItem("pendingReferral", referralCode)
+          toast.success("Referral code detected! Connect your wallet to claim bonus.")
+        } else {
+          toast.error("Invalid referral code")
+        }
+        setReferralProcessed(true)
+      }
+    }
+
+    processUrlReferral()
+  }, [referralProcessed])
 
   // Fetch user data when wallet is connected
   useEffect(() => {
@@ -31,17 +56,28 @@ export default function Home() {
       try {
         setLoading(true)
 
-        // Create user if not exists
-        await createUserIfNotExists(account.address)
+        // Get client info
+        const clientInfo = await fetch("/api/client-info")
+          .then((res) => res.json())
+          .catch(() => ({ ip: null, userAgent: null }))
 
-        // Get user data
-        const data = await getUserData(account.address)
+        // Check for pending referral
+        const pendingReferral = localStorage.getItem("pendingReferral")
 
-        // If user exists but doesn't have token amount yet, generate it
-        if (data && !data.token_amount) {
-          const amount = await generateTokenAmount(account.address)
-          data.token_amount = amount
+        // Create user if not exists (with referral processing)
+        await createUserIfNotExists(account.address, pendingReferral || undefined, {
+          ip: clientInfo.ip,
+          userAgent: clientInfo.userAgent,
+        })
+
+        // Clear pending referral
+        if (pendingReferral) {
+          localStorage.removeItem("pendingReferral")
+          toast.success("Referral bonus applied!")
         }
+
+        // Get updated user data
+        const data = await getUserData(account.address)
 
         // Check if all tasks are completed
         setAllTasksCompleted(data?.tasks_completed || false)
@@ -49,6 +85,7 @@ export default function Home() {
         setUserData(data || null)
       } catch (error) {
         console.error("Error fetching user data:", error)
+        toast.error("Error loading user data")
       } finally {
         setLoading(false)
       }
@@ -57,27 +94,22 @@ export default function Home() {
     fetchUserData()
   }, [account])
 
-  // Check for referral in URL
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const referralCode = urlParams.get("ref")
-
-    if (referralCode && account) {
-      // Process referral
-      console.log(`Processing referral: ${referralCode} for user ${account.address}`)
-      // This would be implemented in the firebase.ts file
-    }
-  }, [account])
-
   // Handle when all social tasks are completed
   const handleAllTasksCompleted = () => {
     setAllTasksCompleted(true)
-    // Update the user data to reflect tasks completion
     if (userData) {
       setUserData({
         ...userData,
         tasks_completed: true,
       })
+    }
+  }
+
+  // Refresh user data
+  const refreshUserData = async () => {
+    if (account) {
+      const data = await getUserData(account.address)
+      setUserData(data)
     }
   }
 
@@ -160,7 +192,7 @@ export default function Home() {
                 </div>
                 {showReferral && account && (
                   <div className={styles.referralSection}>
-                    <ReferralSystem walletAddress={account.address} />
+                    <ReferralSystem walletAddress={account.address} onUpdate={refreshUserData} />
                   </div>
                 )}
                 <p className={styles.campaignNote}>
@@ -193,6 +225,7 @@ export default function Home() {
                     })
                   }}
                   onAllTasksCompleted={handleAllTasksCompleted}
+                  onUpdate={refreshUserData}
                 />
               </div>
             </div>
@@ -234,6 +267,7 @@ export default function Home() {
                         claimed: true,
                       })
                     }}
+                    onUpdate={refreshUserData}
                   />
                 )}
               </div>

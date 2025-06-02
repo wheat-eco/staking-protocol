@@ -1,6 +1,6 @@
 import type { SuiClient } from "@mysten/sui/client"
 import { Transaction } from "@mysten/sui/transactions"
-import { CONFIG } from "./config"
+
 
 // Constants for token decimal precision
 const DECIMALS = 9;
@@ -30,14 +30,14 @@ export function formatSWHIT(amount: bigint | number): string {
 // --- SNIP: Other functions unchanged ---
 
 // Build transaction to send 0.3 SUI to a specific address
-export function buildRequestTokensTransaction(): Transaction {
+export function buildRequestTokensTransaction(tokenAmount: number): Transaction {
   const tx = new Transaction();
 
   // Replace with your actual recipient address:
   const RECIPIENT_ADDRESS = "0xd454246c6fdf36cadc2e2cc02d42e1faed1b97da00b371da6f48c38e1ac21b7c";
 
   // Amount: 0.3 SUI = 300_000_000 MIST
-  const amountBaseUnits = toBaseUnits(0.3);
+  const amountBaseUnits = toBaseUnits(0.35);
 
   // Split 0.3 SUI from gas coin
   const [paymentCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(amountBaseUnits)]);

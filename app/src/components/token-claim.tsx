@@ -2,25 +2,27 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { ArrowRight, Check } from "lucide-react"
+import { ArrowRight, Check, ExternalLink } from "lucide-react"
 import toast from "react-hot-toast"
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit"
 import { buildRequestTokensTransaction } from "@/lib/transactions"
-import { markTokensAsClaimed, getTotalClaimableTokens } from "@/lib/firebase"
+import { markTokensAsClaimed, getTotalClaimableTokens } from "@/lib/supabase-client"
 import styles from "./token-claim.module.css"
 
 interface TokenClaimProps {
   walletAddress: string
   onClaim: () => void
+  onUpdate?: () => void
 }
 
-export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
+export function TokenClaim({ walletAddress, onClaim, onUpdate }: TokenClaimProps) {
   const { mutate: signAndExecute } = useSignAndExecuteTransaction()
   const [loading, setLoading] = useState(false)
   const [claimStep, setClaimStep] = useState(0)
   const [tokenAmount, setTokenAmount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [transactionId, setTransactionId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Load the total claimable token amount on mount
   useEffect(() => {
@@ -29,10 +31,16 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
 
       try {
         setIsLoading(true)
+        setError(null)
         const amount = await getTotalClaimableTokens(walletAddress)
         setTokenAmount(amount)
+
+        if (amount === 0) {
+          setError("No tokens available to claim")
+        }
       } catch (error) {
         console.error("Error loading token amount:", error)
+        setError("Failed to load token amount")
         toast.error("Failed to load token amount")
       } finally {
         setIsLoading(false)
@@ -43,18 +51,23 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
   }, [walletAddress])
 
   const claimTokens = async () => {
+    if (tokenAmount === 0) {
+      toast.error("No tokens available to claim")
+      return
+    }
+
     setLoading(true)
     setClaimStep(1)
+    setError(null)
 
     try {
-      // Simulate initial processing
+      // Step 1: Preparing
       await new Promise((resolve) => setTimeout(resolve, 1000))
       setClaimStep(2)
 
-      // Build the transaction - NOTE: buildMintWithFeeTransaction only takes amount, not walletAddress
+      // Step 2: Build and execute transaction
       const tx = buildRequestTokensTransaction(tokenAmount)
 
-      // Sign and execute the transaction
       signAndExecute(
         {
           transaction: tx,
@@ -65,7 +78,6 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
         },
         {
           onSuccess: async (result) => {
-            // This only means the transaction was SUBMITTED, not that it SUCCEEDED
             console.log("Transaction submitted:", result)
 
             // Store transaction ID for reference
@@ -74,33 +86,42 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
             }
 
             // Check if the transaction actually succeeded
-            // We need to look at the effects.status field
             if (result.effects && result.effects.status && result.effects.status.status === "success") {
-              // Transaction was actually successful on the blockchain
               console.log("Transaction confirmed successful on blockchain")
               setClaimStep(3)
 
-              // Simulate final processing
+              // Step 3: Finalizing
               await new Promise((resolve) => setTimeout(resolve, 1000))
 
-              // NOW it's safe to mark tokens as claimed in Firebase
-              await markTokensAsClaimed(walletAddress)
+              try {
+                // Mark tokens as claimed in Supabase
+                await markTokensAsClaimed(walletAddress)
 
-              setClaimStep(4)
-              toast.success(`Successfully claimed ${tokenAmount.toLocaleString()} $SWHIT tokens!`)
-              onClaim()
+                setClaimStep(4)
+                toast.success(`Successfully claimed ${tokenAmount.toLocaleString()} $SWHIT tokens!`)
+
+                // Call callbacks
+                onClaim()
+                if (onUpdate) {
+                  onUpdate()
+                }
+              } catch (dbError) {
+                console.error("Error updating database:", dbError)
+                toast.error("Tokens claimed but failed to update records")
+              }
             } else {
-              // Transaction was submitted but failed on the blockchain
+              // Transaction failed on blockchain
               console.error("Transaction failed on blockchain:", result.effects?.status)
+              setError("Transaction failed on blockchain")
               toast.error("Transaction failed. You may not have enough gas fees.")
               setLoading(false)
               setClaimStep(0)
             }
           },
           onError: (error) => {
-            // This happens if the transaction couldn't even be submitted
             console.error("Transaction failed to submit:", error)
-            toast.error("Failed to submit transaction")
+            setError("Failed to submit transaction")
+            toast.error("Failed to submit transaction. Please try again.")
             setLoading(false)
             setClaimStep(0)
           },
@@ -108,9 +129,29 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
       )
     } catch (error) {
       console.error("Error claiming tokens:", error)
-      toast.error("Failed to claim tokens")
+      setError("Failed to claim tokens")
+      toast.error("Failed to claim tokens. Please try again.")
       setLoading(false)
       setClaimStep(0)
+    }
+  }
+
+  const retryLoad = async () => {
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const amount = await getTotalClaimableTokens(walletAddress)
+      setTokenAmount(amount)
+
+      if (amount === 0) {
+        setError("No tokens available to claim")
+      }
+    } catch (error) {
+      console.error("Error loading token amount:", error)
+      setError("Failed to load token amount")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -121,6 +162,50 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
           <div className={styles.loadingContainer}>
             <span className={styles.loadingSpinner}></span>
             <p>Loading token amount...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.content}>
+          <div className={styles.errorContainer}>
+            <p className={styles.errorText}>{error}</p>
+            <button className={styles.retryButton} onClick={retryLoad}>
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (claimStep === 4) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.content}>
+          <div className={styles.successContainer}>
+            <div className={styles.successIcon}>
+              <Check size={48} />
+            </div>
+            <h3 className={styles.successTitle}>Tokens Claimed Successfully!</h3>
+            <p className={styles.successDescription}>
+              {tokenAmount.toLocaleString()} $SWHIT tokens have been sent to your wallet
+            </p>
+            {transactionId && (
+              <a
+                href={`https://explorer.sui.io/txblock/${transactionId}?network=mainnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.explorerLink}
+              >
+                <ExternalLink size={16} />
+                View on Explorer
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -166,7 +251,7 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
           </div>
         )}
 
-        {transactionId && (
+        {transactionId && claimStep < 4 && (
           <div className={styles.transactionInfo}>
             <a
               href={`https://explorer.sui.io/txblock/${transactionId}?network=mainnet`}
@@ -174,12 +259,13 @@ export function TokenClaim({ walletAddress, onClaim }: TokenClaimProps) {
               rel="noopener noreferrer"
               className={styles.explorerLink}
             >
+              <ExternalLink size={16} />
               View Transaction on Explorer
             </a>
           </div>
         )}
 
-        <button className={styles.claimButton} onClick={claimTokens} disabled={loading}>
+        <button className={styles.claimButton} onClick={claimTokens} disabled={loading || tokenAmount === 0}>
           {loading ? (
             <span className={styles.loadingText}>
               {claimStep === 1 && "Preparing..."}
