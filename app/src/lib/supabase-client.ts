@@ -41,7 +41,150 @@ export interface ReferralData {
   processed_at?: string
 }
 
-// Create user if not exists
+export interface CampaignSettings {
+  token_amounts: { min: number; max: number }
+  social_rewards: {
+    twitter: { min: number; max: number }
+    telegram: { min: number; max: number }
+    discord: { min: number; max: number }
+  }
+  referral_bonuses: { referrer: number; referee: number }
+  campaign_duration: { start: string; end: string }
+  max_referrals_per_user: number
+}
+
+// Cache for settings to avoid repeated database calls
+let settingsCache: CampaignSettings | null = null
+let settingsCacheTime = 0
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
+// Get campaign settings with caching
+export async function getCampaignSettings(): Promise<CampaignSettings> {
+  const now = Date.now()
+
+  // Return cached settings if still valid
+  if (settingsCache && now - settingsCacheTime < CACHE_DURATION) {
+    return settingsCache
+  }
+
+  try {
+    const { data: settingsData, error } = await supabase.from("campaign_settings").select("setting_key, setting_value")
+
+    if (error) throw error
+
+    // Default settings fallback
+    const defaultSettings: CampaignSettings = {
+      token_amounts: { min: 100, max: 10000 },
+      social_rewards: {
+        twitter: { min: 50, max: 500 },
+        telegram: { min: 50, max: 500 },
+        discord: { min: 50, max: 500 },
+      },
+      referral_bonuses: { referrer: 500, referee: 250 },
+      campaign_duration: { start: "2025-01-01", end: "2025-01-16" },
+      max_referrals_per_user: 100,
+    }
+
+    if (settingsData && settingsData.length > 0) {
+      const settingsMap: Record<string, any> = {}
+      settingsData.forEach((setting) => {
+        settingsMap[setting.setting_key] = setting.setting_value
+      })
+
+      settingsCache = {
+        token_amounts: settingsMap.token_amounts || defaultSettings.token_amounts,
+        social_rewards: settingsMap.social_rewards || defaultSettings.social_rewards,
+        referral_bonuses: settingsMap.referral_bonuses || defaultSettings.referral_bonuses,
+        campaign_duration: settingsMap.campaign_duration || defaultSettings.campaign_duration,
+        max_referrals_per_user: settingsMap.max_referrals_per_user || defaultSettings.max_referrals_per_user,
+      }
+    } else {
+      settingsCache = defaultSettings
+    }
+
+    settingsCacheTime = now
+    return settingsCache
+  } catch (error) {
+    console.error("Error fetching campaign settings:", error)
+
+    // Return default settings on error
+    const defaultSettings: CampaignSettings = {
+      token_amounts: { min: 100, max: 10000 },
+      social_rewards: {
+        twitter: { min: 50, max: 500 },
+        telegram: { min: 50, max: 500 },
+        discord: { min: 50, max: 500 },
+      },
+      referral_bonuses: { referrer: 500, referee: 250 },
+      campaign_duration: { start: "2025-01-01", end: "2025-01-16" },
+      max_referrals_per_user: 100,
+    }
+
+    return defaultSettings
+  }
+}
+
+// Clear settings cache (useful after admin updates)
+export function clearSettingsCache() {
+  settingsCache = null
+  settingsCacheTime = 0
+}
+
+// Safe upsert function for campaign settings
+export async function upsertCampaignSetting(key: string, value: any): Promise<void> {
+  try {
+    // Use the database function for safe upsert
+    const { error } = await supabase.rpc("upsert_campaign_setting", {
+      p_setting_key: key,
+      p_setting_value: value,
+    })
+
+    if (error) throw error
+
+    // Clear cache after successful update
+    clearSettingsCache()
+  } catch (error) {
+    console.error(`Error upserting setting ${key}:`, error)
+    throw error
+  }
+}
+
+// Generate token amount based on settings
+export async function generateTokenAmount(): Promise<number> {
+  try {
+    const settings = await getCampaignSettings()
+    const { min, max } = settings.token_amounts
+
+    // Generate with quadratic bias toward higher values
+    const rand = Math.random()
+    const biased = Math.pow(rand, 2)
+    const baseAmount = Math.floor(min + (max - min) * (1 - biased))
+
+    return baseAmount
+  } catch (error) {
+    console.error("Error generating token amount:", error)
+    // Fallback to default range
+    const rand = Math.random()
+    const biased = Math.pow(rand, 2)
+    return Math.floor(100 + (10000 - 100) * (1 - biased))
+  }
+}
+
+// Generate social reward based on settings
+export async function generateSocialReward(platform: "twitter" | "telegram" | "discord"): Promise<number> {
+  try {
+    const settings = await getCampaignSettings()
+    const { min, max } = settings.social_rewards[platform]
+
+    return Math.floor(Math.random() * (max - min + 1)) + min
+  } catch (error) {
+    console.error(`Error generating ${platform} reward:`, error)
+    // Fallback to default range
+    return Math.floor(Math.random() * 450) + 50
+  }
+}
+
+// Create user if not exists with dynamic settings
 export async function createUserIfNotExists(
   walletAddress: string,
   referralCode?: string,
@@ -58,14 +201,11 @@ export async function createUserIfNotExists(
     // Generate unique referral code
     const { data: newReferralCode } = await supabase.rpc("generate_referral_code")
 
-    // Generate base token amount (100-10000 with quadratic bias toward higher values)
-    const rand = Math.random()
-    const biased = Math.pow(rand, 2)
-    const baseAmount = Math.floor(100 + (10000 - 100) * (1 - biased))
+    // Generate base token amount using settings
+    const baseAmount = await generateTokenAmount()
 
     // Add deterministic bonus based on wallet address
     const bonus = walletAddress.split("").reduce((sum, c) => sum + c.charCodeAt(0), 0) % 100
-
     const finalAmount = baseAmount + bonus
 
     // Create new user
@@ -139,10 +279,10 @@ export async function processReferral(referralCode: string, refereeWallet: strin
   }
 }
 
-// Connect social accounts
+// Connect social accounts with dynamic rewards
 export async function connectTwitterAccount(walletAddress: string): Promise<number> {
   try {
-    const reward = Math.floor(Math.random() * 450) + 50 // 50-500 tokens
+    const reward = await generateSocialReward("twitter")
 
     const { data: user } = await supabase.from("users").select("id").eq("wallet_address", walletAddress).single()
 
@@ -178,7 +318,7 @@ export async function connectTwitterAccount(walletAddress: string): Promise<numb
 
 export async function joinTelegramCommunity(walletAddress: string): Promise<number> {
   try {
-    const reward = Math.floor(Math.random() * 450) + 50 // 50-500 tokens
+    const reward = await generateSocialReward("telegram")
 
     const { data: user } = await supabase.from("users").select("id").eq("wallet_address", walletAddress).single()
 
@@ -214,7 +354,7 @@ export async function joinTelegramCommunity(walletAddress: string): Promise<numb
 
 export async function joinDiscordChannel(walletAddress: string): Promise<number> {
   try {
-    const reward = Math.floor(Math.random() * 450) + 50 // 50-500 tokens
+    const reward = await generateSocialReward("discord")
 
     const { data: user } = await supabase.from("users").select("id").eq("wallet_address", walletAddress).single()
 
@@ -361,5 +501,20 @@ export async function validateReferralCode(referralCode: string): Promise<boolea
     return !error && !!data
   } catch (error) {
     return false
+  }
+}
+
+// Check if campaign is active
+export async function isCampaignActive(): Promise<boolean> {
+  try {
+    const settings = await getCampaignSettings()
+    const now = new Date()
+    const startDate = new Date(settings.campaign_duration.start)
+    const endDate = new Date(settings.campaign_duration.end + "T23:59:59Z")
+
+    return now >= startDate && now <= endDate
+  } catch (error) {
+    console.error("Error checking campaign status:", error)
+    return true // Default to active on error
   }
 }

@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase-client"
 import styles from "./campaign-timer.module.css"
 
-// Hardcoded campaign end date (UTC)
-const END_DATE = new Date("2025-05-31T23:59:59Z")
 const STORAGE_KEY = "campaign_timer_state"
 
 interface TimeLeft {
@@ -12,7 +11,12 @@ interface TimeLeft {
   hours: number
   minutes: number
   seconds: number
-  lastUpdated: number // timestamp when this was last calculated
+  lastUpdated: number
+}
+
+interface CampaignDuration {
+  start: string
+  end: string
 }
 
 export function CampaignTimer() {
@@ -23,27 +27,57 @@ export function CampaignTimer() {
     seconds: 0,
     lastUpdated: 0,
   })
+  const [endDate, setEndDate] = useState<Date | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [campaignEnded, setCampaignEnded] = useState(false)
 
-  // Initialize from localStorage or calculate fresh
+  // Fetch campaign duration from Supabase settings
   useEffect(() => {
-    // Try to load saved state
+    const fetchCampaignDuration = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("campaign_settings")
+          .select("setting_value")
+          .eq("setting_key", "campaign_duration")
+          .single()
+
+        if (error) {
+          console.error("Error fetching campaign duration:", error)
+          // Fallback to default end date
+          setEndDate(new Date("2025-01-16T23:59:59Z"))
+        } else if (data?.setting_value) {
+          const duration = data.setting_value as CampaignDuration
+          setEndDate(new Date(duration.end + "T23:59:59Z"))
+        } else {
+          // Fallback to default end date
+          setEndDate(new Date("2025-01-16T23:59:59Z"))
+        }
+      } catch (error) {
+        console.error("Error fetching campaign settings:", error)
+        // Fallback to default end date
+        setEndDate(new Date("2025-01-16T23:59:59Z"))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCampaignDuration()
+  }, [])
+
+  // Timer logic
+  useEffect(() => {
+    if (!endDate || loading) return
+
     const loadSavedState = () => {
       try {
         const savedState = localStorage.getItem(STORAGE_KEY)
         if (savedState) {
           const parsedState = JSON.parse(savedState) as TimeLeft
-
-          // Check if saved state is still valid (not too old)
           const now = Date.now()
           const timeSinceLastUpdate = now - parsedState.lastUpdated
 
-          // If the saved state is less than 10 seconds old, use it
-          // Otherwise, calculate fresh values
           if (timeSinceLastUpdate < 10000) {
-            // Adjust the time based on how much time has passed since last update
             const secondsPassed = Math.floor(timeSinceLastUpdate / 1000)
-
-            // Convert everything to seconds, subtract elapsed time, then convert back
             let totalSeconds =
               parsedState.days * 86400 +
               parsedState.hours * 3600 +
@@ -52,12 +86,11 @@ export function CampaignTimer() {
               secondsPassed
 
             if (totalSeconds <= 0) {
-              // Campaign has ended since last save
+              setCampaignEnded(true)
               setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, lastUpdated: now })
               return
             }
 
-            // Convert back to days, hours, minutes, seconds
             const days = Math.floor(totalSeconds / 86400)
             totalSeconds %= 86400
             const hours = Math.floor(totalSeconds / 3600)
@@ -71,17 +104,14 @@ export function CampaignTimer() {
         }
       } catch (error) {
         console.error("Error loading timer state:", error)
-        // Continue to fresh calculation on error
       }
 
-      // Calculate fresh if no valid saved state
       calculateTimeLeft()
     }
 
-    // Calculate time left and update state
     const calculateTimeLeft = () => {
       const now = Date.now()
-      const difference = END_DATE.getTime() - now
+      const difference = endDate.getTime() - now
 
       if (difference > 0) {
         const newTimeLeft = {
@@ -93,19 +123,18 @@ export function CampaignTimer() {
         }
 
         setTimeLeft(newTimeLeft)
+        setCampaignEnded(false)
 
-        // Save to localStorage
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(newTimeLeft))
         } catch (error) {
           console.error("Error saving timer state:", error)
         }
       } else {
-        // Campaign ended
+        setCampaignEnded(true)
         const endState = { days: 0, hours: 0, minutes: 0, seconds: 0, lastUpdated: now }
         setTimeLeft(endState)
 
-        // Clear from localStorage when ended
         try {
           localStorage.removeItem(STORAGE_KEY)
         } catch (error) {
@@ -114,15 +143,34 @@ export function CampaignTimer() {
       }
     }
 
-    // Load saved state on initial render
     loadSavedState()
-
-    // Update every second
     const timer = setInterval(calculateTimeLeft, 1000)
 
-    // Clean up
     return () => clearInterval(timer)
-  }, [])
+  }, [endDate, loading])
+
+  if (loading) {
+    return (
+      <div className={styles.timerContainer}>
+        <div className={styles.timerHeader}>
+          <h3 className={styles.timerTitle}>Loading Campaign Timer...</h3>
+        </div>
+      </div>
+    )
+  }
+
+  if (campaignEnded) {
+    return (
+      <div className={styles.timerContainer}>
+        <div className={styles.timerHeader}>
+          <h3 className={styles.timerTitle}>Campaign Has Ended</h3>
+        </div>
+        <div className={styles.campaignEndedMessage}>
+          <p>Thank you for participating in the WheatChain Token Spree!</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.timerContainer}>

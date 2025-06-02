@@ -1,38 +1,67 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getAuth, onAuthStateChanged } from "firebase/auth"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { AdminDashboard } from "@/components/admin/dashboard"
 import { AdminLogin } from "@/components/admin/login"
-import { initFirebase } from "@/lib/firebase"
-import { toast } from "react-hot-toast"
+import toast from "react-hot-toast"
 
 export default function AdminPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
+  const supabase = createClientComponentClient()
 
   // List of authorized admin emails
   const authorizedEmails = ["muizadesope83@gmail.com", "predfi.xyz@gmail.com"]
 
   useEffect(() => {
-    // Initialize Firebase
-    initFirebase()
-    const auth = getAuth()
+    const checkAuth = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Check if the user's email is authorized
-        if (user.email && authorizedEmails.includes(user.email)) {
-          setUser(user)
-          setAuthorized(true)
-        } else {
-          // If not authorized, sign out
-          auth.signOut().then(() => {
+        if (session?.user) {
+          // Check if the user's email is authorized
+          if (session.user.email && authorizedEmails.includes(session.user.email)) {
+            setUser(session.user)
+            setAuthorized(true)
+          } else {
+            // If not authorized, sign out
+            await supabase.auth.signOut()
             setUser(null)
             setAuthorized(false)
             toast.error("Access denied. You are not authorized to access the admin panel.")
-          })
+          }
+        } else {
+          setUser(null)
+          setAuthorized(false)
+        }
+      } catch (error) {
+        console.error("Auth error:", error)
+        setUser(null)
+        setAuthorized(false)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        if (session.user.email && authorizedEmails.includes(session.user.email)) {
+          setUser(session.user)
+          setAuthorized(true)
+        } else {
+          await supabase.auth.signOut()
+          setUser(null)
+          setAuthorized(false)
+          toast.error("Access denied. You are not authorized to access the admin panel.")
         }
       } else {
         setUser(null)
@@ -41,7 +70,7 @@ export default function AdminPage() {
       setLoading(false)
     })
 
-    return () => unsubscribe()
+    return () => subscription.unsubscribe()
   }, [])
 
   if (loading) {

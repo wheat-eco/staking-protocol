@@ -1,97 +1,109 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth"
-import { initFirebase } from "@/lib/firebase"
-import { toast } from "react-hot-toast"
-import Image from "next/image"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Mail, Lock, LogIn } from "lucide-react"
+import toast from "react-hot-toast"
 
 export function AdminLogin() {
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [accessDenied, setAccessDenied] = useState(false)
+  const supabase = createClientComponentClient()
 
-  // Initialize Firebase
-  initFirebase()
-  const auth = getAuth()
-
-  // List of authorized admin emails
-  const authorizedEmails = ["muizadesope83@gmail.com", "predfi.xyz@gmail.com"]
-
-  const handleGoogleLogin = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
     setLoading(true)
-    setAccessDenied(false)
 
     try {
-      const provider = new GoogleAuthProvider()
-      const result = await signInWithPopup(auth, provider)
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-      // Check if the user's email is in the authorized list
-      if (result.user && result.user.email && authorizedEmails.includes(result.user.email)) {
-        toast.success("Login successful!")
-      } else {
-        // If not authorized, sign out and show access denied
-        await auth.signOut()
-        setAccessDenied(true)
-        toast.error("Access denied. You are not authorized to access the admin panel.")
+      if (error) {
+        toast.error(error.message)
+      } else if (data.user) {
+        toast.success("Login successful")
       }
-    } catch (error: any) {
-      console.error("Google login error:", error)
-      toast.error(error.message || "Failed to login with Google")
+    } catch (error) {
+      console.error("Login error:", error)
+      toast.error("Login failed")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-8 bg-gray-800 rounded-lg shadow-xl">
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="flex justify-center mb-4">
-            <Image src="/placeholder.svg?height=80&width=80" alt="WheatChain Logo" width={80} height={80} />
-          </div>
-          <h2 className="text-3xl font-bold text-white">WheatChain Admin</h2>
-          <p className="mt-2 text-gray-400">Sign in to access the admin dashboard</p>
+          <h2 className="mt-6 text-3xl font-bold text-white">Admin Login</h2>
+          <p className="mt-2 text-sm text-gray-400">Sign in to access the admin dashboard</p>
         </div>
 
-        {accessDenied ? (
-          <div className="mt-6 p-4 bg-red-900/30 border border-red-700 rounded-md">
-            <h3 className="text-lg font-medium text-red-400">Access Denied</h3>
-            <p className="mt-2 text-gray-300">
-              You are not authorized to access the admin panel. Please contact an administrator if you believe this is
-              an error.
-            </p>
-            <button
-              onClick={() => setAccessDenied(false)}
-              className="mt-4 w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-white"
-            >
-              Try Again
-            </button>
-          </div>
-        ) : (
-          <div className="mt-8">
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full flex items-center justify-center px-4 py-3 space-x-4 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-t-transparent border-white rounded-full animate-spin mr-2"></div>
-              ) : (
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"
-                  />
-                </svg>
-              )}
-              <span>{loading ? "Signing in..." : "Sign in with Google"}</span>
-            </button>
+        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-700 rounded-md bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  placeholder="Enter your email"
+                />
+              </div>
+            </div>
 
-            <div className="mt-6 text-center text-sm text-gray-500">
-              <p>Only authorized administrators can access this panel.</p>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-700 rounded-md bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  placeholder="Enter your password"
+                />
+              </div>
             </div>
           </div>
-        )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-black bg-yellow-500 hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-t-transparent border-black rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <LogIn className="h-5 w-5 mr-2" />
+                Sign In
+              </>
+            )}
+          </button>
+        </form>
       </div>
     </div>
   )
