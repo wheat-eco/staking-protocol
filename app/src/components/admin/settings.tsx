@@ -168,7 +168,7 @@ export function Settings() {
       },
       max_referrals_per_user: 100,
     })
-    toast.info("Settings reset to defaults")
+    toast("Settings reset to defaults")
   }
 
   const updateNestedSetting = (path: string[], value: any) => {
