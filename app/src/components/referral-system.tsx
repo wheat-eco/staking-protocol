@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Copy, Share2, Users, Gift, Check } from "lucide-react"
+import { Copy, Share2, Users, Gift, Check, TrendingUp } from "lucide-react"
 import toast from "react-hot-toast"
 import { getUserReferralCode, getReferralStats } from "@/lib/supabase-client"
+import { ReferralEarnings } from "./referral-earnings"
 import styles from "./referral-system.module.css"
 
 interface ReferralSystemProps {
@@ -18,6 +19,7 @@ export function ReferralSystem({ walletAddress, onUpdate }: ReferralSystemProps)
   const [referralStats, setReferralStats] = useState({ count: 0, bonus: 0 })
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [showEarnings, setShowEarnings] = useState(false)
 
   useEffect(() => {
     async function fetchReferralData() {
@@ -134,6 +136,17 @@ export function ReferralSystem({ walletAddress, onUpdate }: ReferralSystemProps)
             <div className={styles.statLabel}>Bonus Tokens</div>
           </div>
         </div>
+        <div className={styles.statItem}>
+          <div className={styles.statIcon}>
+            <TrendingUp size={24} />
+          </div>
+          <div className={styles.statContent}>
+            <div className={styles.statValue}>
+              {referralStats.count > 0 ? Math.round(referralStats.bonus / referralStats.count) : 0}
+            </div>
+            <div className={styles.statLabel}>Avg. per Referral</div>
+          </div>
+        </div>
       </div>
 
       {/* Referral Code Display */}
@@ -185,6 +198,17 @@ export function ReferralSystem({ walletAddress, onUpdate }: ReferralSystemProps)
         </div>
       </div>
 
+      {/* Earnings Management */}
+      <div className={styles.earningsSection}>
+        <button className={styles.earningsToggle} onClick={() => setShowEarnings(!showEarnings)}>
+          <Gift size={20} />
+          <span>Manage Referral Earnings</span>
+          <span className={styles.earningsCount}>({referralStats.count} referrals)</span>
+        </button>
+
+        {showEarnings && <ReferralEarnings walletAddress={walletAddress} onUpdate={onUpdate} />}
+      </div>
+
       {/* Referral Info */}
       <div className={styles.referralInfo}>
         <div className={styles.infoCard}>
@@ -197,6 +221,9 @@ export function ReferralSystem({ walletAddress, onUpdate }: ReferralSystemProps)
             </li>
             <li>
               Your friend gets <strong>250 bonus tokens</strong> for joining
+            </li>
+            <li>
+              <strong>NEW:</strong> Claim your referral bonuses separately anytime!
             </li>
           </ul>
         </div>

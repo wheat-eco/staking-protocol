@@ -518,3 +518,99 @@ export async function isCampaignActive(): Promise<boolean> {
     return true // Default to active on error
   }
 }
+
+// Get detailed referral earnings for a user
+export async function getReferralEarnings(walletAddress: string): Promise<{
+  earnings: Array<{
+    id: string
+    referrer_bonus: number
+    referee_wallet: string
+    created_at: string
+    claimed: boolean
+  }>
+  totalUnclaimed: number
+  totalClaimed: number
+}> {
+  try {
+    // Get user ID first
+    const { data: user } = await supabase.from("users").select("id").eq("wallet_address", walletAddress).single()
+
+    if (!user) {
+      return { earnings: [], totalUnclaimed: 0, totalClaimed: 0 }
+    }
+
+    // Get all referral records for this user
+    const { data: referrals, error } = await supabase
+      .from("referrals")
+      .select(`
+        id,
+        referrer_bonus,
+        referee_bonus,
+        created_at,
+        claimed,
+        referee:referee_id(wallet_address)
+      `)
+      .eq("referrer_id", user.id)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+
+    const earnings = (referrals || []).map((referral: any) => ({
+      id: referral.id,
+      referrer_bonus: referral.referrer_bonus,
+      referee_wallet: referral.referee?.wallet_address || "Unknown",
+      created_at: referral.created_at,
+      claimed: referral.claimed || false,
+    }))
+
+    const totalUnclaimed = earnings
+      .filter((earning) => !earning.claimed)
+      .reduce((sum, earning) => sum + earning.referrer_bonus, 0)
+
+    const totalClaimed = earnings
+      .filter((earning) => earning.claimed)
+      .reduce((sum, earning) => sum + earning.referrer_bonus, 0)
+
+    return {
+      earnings,
+      totalUnclaimed,
+      totalClaimed,
+    }
+  } catch (error) {
+    console.error("Error fetching referral earnings:", error)
+    return { earnings: [], totalUnclaimed: 0, totalClaimed: 0 }
+  }
+}
+
+// Mark referral bonuses as claimed
+export async function markReferralBonusAsClaimed(walletAddress: string): Promise<void> {
+  try {
+    // Get user ID
+    const { data: user } = await supabase.from("users").select("id").eq("wallet_address", walletAddress).single()
+
+    if (!user) throw new Error("User not found")
+
+    // Mark all unclaimed referrals as claimed
+    const { error } = await supabase
+      .from("referrals")
+      .update({
+        claimed: true,
+        claimed_at: new Date().toISOString(),
+      })
+      .eq("referrer_id", user.id)
+      .eq("claimed", false)
+
+    if (error) throw error
+
+    // Log the claim activity
+    await supabase.from("activity_log").insert([
+      {
+        user_id: user.id,
+        activity_type: "referral_bonuses_claimed",
+      },
+    ])
+  } catch (error) {
+    console.error("Error marking referral bonuses as claimed:", error)
+    throw error
+  }
+}
