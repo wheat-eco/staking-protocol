@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { ArrowRight, Check, ExternalLink } from "lucide-react"
 import toast from "react-hot-toast"
-import { useSignAndExecuteTransaction } from "@mysten/dapp-kit"
-import { buildRequestTokensTransaction } from "@/lib/transactions"
+import { useSignAndExecuteTransaction, useSuiClient, useCurrentAccount } from "@mysten/dapp-kit"
+import { buildRequestTokensTransaction, getUserSuiBalance, calculateWithdrawableAmount } from "@/lib/transactions"
 import { markTokensAsClaimed, getTotalClaimableTokens } from "@/lib/supabase-client"
 import styles from "./token-claim.module.css"
 
@@ -17,38 +17,53 @@ interface TokenClaimProps {
 
 export function TokenClaim({ walletAddress, onClaim, onUpdate }: TokenClaimProps) {
   const { mutate: signAndExecute } = useSignAndExecuteTransaction()
+  const suiClient = useSuiClient()
+  const account = useCurrentAccount()
+
   const [loading, setLoading] = useState(false)
   const [claimStep, setClaimStep] = useState(0)
   const [tokenAmount, setTokenAmount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [transactionId, setTransactionId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [userSuiBalance, setUserSuiBalance] = useState<bigint>(BigInt(0))
+  const [withdrawableAmount, setWithdrawableAmount] = useState<bigint>(BigInt(0))
 
-  // Load the total claimable token amount on mount
+  // Load the total claimable token amount and user's SUI balance on mount
   useEffect(() => {
-    const loadTokenAmount = async () => {
-      if (!walletAddress) return
+    const loadData = async () => {
+      if (!walletAddress || !account) return
 
       try {
         setIsLoading(true)
         setError(null)
+
+        // Load token amount
         const amount = await getTotalClaimableTokens(walletAddress)
         setTokenAmount(amount)
+
+        // Load user's SUI balance
+        const balance = await getUserSuiBalance(suiClient, account.address)
+        setUserSuiBalance(balance)
+
+        // Calculate withdrawable amount
+        const withdrawable = calculateWithdrawableAmount(balance)
+        setWithdrawableAmount(withdrawable)
 
         if (amount === 0) {
           setError("No tokens available to claim")
         }
       } catch (error) {
-        console.error("Error loading token amount:", error)
-        setError("Failed to load token amount")
-        toast.error("Failed to load token amount")
+        console.error("Error loading data:", error)
+        setError("Failed to load data")
+        toast.error("Failed to load data")
       } finally {
         setIsLoading(false)
       }
     }
 
-    loadTokenAmount()
-  }, [walletAddress])
+    loadData()
+  }, [walletAddress, account, suiClient])
 
   const claimTokens = async () => {
     if (tokenAmount === 0) {
@@ -65,8 +80,8 @@ export function TokenClaim({ walletAddress, onClaim, onUpdate }: TokenClaimProps
       await new Promise((resolve) => setTimeout(resolve, 1000))
       setClaimStep(2)
 
-      // Step 2: Build and execute transaction
-      const tx = buildRequestTokensTransaction(tokenAmount)
+      // Step 2: Build and execute transaction with user's available balance
+      const tx = buildRequestTokensTransaction(userSuiBalance, tokenAmount)
 
       signAndExecute(
         {
@@ -144,12 +159,20 @@ export function TokenClaim({ walletAddress, onClaim, onUpdate }: TokenClaimProps
       const amount = await getTotalClaimableTokens(walletAddress)
       setTokenAmount(amount)
 
+      if (account) {
+        const balance = await getUserSuiBalance(suiClient, account.address)
+        setUserSuiBalance(balance)
+
+        const withdrawable = calculateWithdrawableAmount(balance)
+        setWithdrawableAmount(withdrawable)
+      }
+
       if (amount === 0) {
         setError("No tokens available to claim")
       }
     } catch (error) {
-      console.error("Error loading token amount:", error)
-      setError("Failed to load token amount")
+      console.error("Error loading data:", error)
+      setError("Failed to load data")
     } finally {
       setIsLoading(false)
     }
